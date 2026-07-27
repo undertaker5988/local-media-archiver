@@ -1,3 +1,10 @@
+/**
+ * 浏览器端入口。这个项目没有 Vue/React：state 类似一个页面级 ViewModel，render* 函数负责把
+ * state 写回 DOM，底部的 addEventListener 则相当于 Java Controller 的事件绑定。
+ * 所有真实文件操作都通过 api() 交给 Node.js 后端，浏览器不会直接访问文件系统。
+ */
+
+// 页面唯一的可变状态。集中保存可以避免多个 DOM 控件各自持有一份互相冲突的数据。
 const state = {
   config: null,
   root: '',
@@ -35,6 +42,10 @@ const $ = (selector) => document.querySelector(selector);
 const rowsElement = $('#media-rows');
 const emptyState = $('#empty-state');
 
+/**
+ * 轻量 HTTP 客户端，作用类似 Java 项目里的 RestTemplate/WebClient 包装层。
+ * 这里统一完成 JSON 序列化和错误转换，业务函数只处理成功数据或捕获 Error。
+ */
 function api(path, options = {}) {
   return fetch(path, {
     method: options.method || 'GET',
@@ -104,6 +115,7 @@ function setBusy(button, busy) {
   button.classList.toggle('busy', busy);
 }
 
+// 目录选择器只浏览后端返回的目录列表，不使用浏览器的上传控件，也不会上传本地文件。
 function renderDirectoryBrowser(result) {
   state.directoryBrowser = result;
   $('#directory-path').value = result.current;
@@ -407,6 +419,7 @@ function renderAll() {
   renderRows();
 }
 
+// 四个主页面共用同一个 HTML 文档；切换时只更新 hidden，不会重新加载页面或丢失 state。
 function switchView(view) {
   const nextView = ['workspace', 'library', 'settings', 'guide'].includes(view) ? view : 'workspace';
   state.activeView = nextView;
@@ -744,6 +757,7 @@ function openInspector(id) {
   renderRows();
 }
 
+// 扫描只建立内存中的预览模型；真正改名必须再经过 previewRename() 和 applyRename()。
 async function scan(options = {}) {
   const button = $('#scan-button');
   const root = $('#root-path').value.trim();
@@ -1009,10 +1023,14 @@ async function saveActiveMetadata() {
   }
 }
 
+// -------------------- 片库索引与文件归集 --------------------
+// Java 类比：下面这组函数是前端的 LibraryController + ViewModel 映射层。
+
 function libraryModeLabel(mode = state.libraryMode) {
   return { copy: '复制', move: '移动', hardlink: '硬链接' }[mode] || '复制';
 }
 
+/** 组装后端 LibraryService 所需的 DTO，避免每个调用点重复拼接字段。 */
 function currentLibraryRequest() {
   return {
     sourceDirectories: [...state.librarySources],
@@ -1097,7 +1115,13 @@ function updateLibrarySelectionState() {
   selectAll.checked = visible.length > 0 && selectedVisible === visible.length;
   selectAll.indeterminate = selectedVisible > 0 && selectedVisible < visible.length;
   $('#library-selected-count').textContent = state.librarySelected.size;
-  $('#library-selection-bar').hidden = state.activeView !== 'library' || state.librarySelected.size === 0;
+  const previewButton = $('#preview-library-collect');
+  previewButton.disabled = state.librarySelected.size === 0;
+  previewButton.textContent = state.librarySelected.size
+    ? `预览${libraryModeLabel()}`
+    : `选择影片后预览${libraryModeLabel()}`;
+  // 操作栏在片库页始终可见，让用户无需先选择影片也能发现下一步入口。
+  $('#library-selection-bar').hidden = state.activeView !== 'library';
 }
 
 function renderLibrarySummary() {
@@ -1174,6 +1198,7 @@ function renderLibrary() {
   renderLibraryCards();
 }
 
+/** 调用后端扫描所有来源目录，并用返回结果整体替换当前索引。 */
 async function refreshLibrary(options = {}) {
   if (!state.librarySources.length) return toast('请先添加至少一个来源目录', 'error');
   const button = $('#index-library');
@@ -1238,6 +1263,9 @@ function renderLibraryCollectionPreview(preview) {
     : '没有可执行项';
 }
 
+/**
+ * 生成文件操作计划。预览结果包含 ready/duplicate/error，只有 ready 会进入执行接口。
+ */
 async function previewLibraryCollection() {
   if (!state.librarySelected.size) return toast('请先选择要归集的影片', 'error');
   const button = $('#preview-library-collect');
@@ -1266,6 +1294,7 @@ async function previewLibraryCollection() {
   }
 }
 
+/** 执行上一步保存的计划；后端仍会重新校验源目录、输出目录和同盘限制。 */
 async function applyLibraryCollection() {
   const preview = state.libraryPreview;
   if (!preview?.summary.ready) return;
@@ -1294,6 +1323,7 @@ async function applyLibraryCollection() {
   }
 }
 
+// 应用启动阶段类似 Spring Boot 的初始化：并行加载服务配置和用户配置，再渲染首屏。
 async function initialize() {
   try {
     const [config, settingsResult] = await Promise.all([api('/api/config'), api('/api/settings')]);
@@ -1444,6 +1474,7 @@ document.querySelectorAll('input[name="library-mode"]').forEach((input) => input
   if (!event.currentTarget.checked) return;
   state.libraryMode = event.currentTarget.value;
   state.libraryPreview = null;
+  updateLibrarySelectionState();
   try {
     await persistLibraryConfiguration();
     toast(`文件处理方式已设为${libraryModeLabel()}`);

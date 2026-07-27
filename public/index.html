@@ -19,7 +19,7 @@
         </div>
         <nav class="top-nav" aria-label="主导航">
           <button class="top-nav-button active" type="button" data-view="workspace" aria-current="page">整理</button>
-          <button class="top-nav-button" type="button" data-view="library">片库</button>
+          <button class="top-nav-button" type="button" data-view="library">片库归集</button>
           <button class="top-nav-button" type="button" data-view="settings">命名配置</button>
           <button class="top-nav-button" type="button" data-view="guide">说明</button>
         </nav>
@@ -153,8 +153,8 @@
       <main id="library-view" class="library-view app-view" hidden>
         <header class="page-heading library-heading">
           <div>
-            <span class="eyebrow">本地资料库</span>
-            <h1>片库</h1>
+            <span class="eyebrow">文件归集</span>
+            <h1>片库归集</h1>
             <p id="library-index-meta">尚未建立索引</p>
           </div>
           <button id="index-library" class="primary-button" type="button">刷新片库</button>
@@ -176,11 +176,20 @@
               <span id="library-output-effective" class="library-effective-path"></span>
             </div>
             <fieldset class="library-mode-config">
-              <legend>文件处理</legend>
-              <div class="segmented-control">
-                <label><input type="radio" name="library-mode" value="copy" checked><span>复制</span></label>
-                <label><input type="radio" name="library-mode" value="move"><span>移动</span></label>
-                <label><input type="radio" name="library-mode" value="hardlink"><span>硬链接</span></label>
+              <legend>文件处理方式</legend>
+              <div class="segmented-control library-mode-control">
+                <label>
+                  <input type="radio" name="library-mode" value="copy" checked>
+                  <span><strong>复制</strong><small>保留源文件</small></span>
+                </label>
+                <label>
+                  <input type="radio" name="library-mode" value="move">
+                  <span><strong>移动</strong><small>迁移源文件</small></span>
+                </label>
+                <label>
+                  <input type="radio" name="library-mode" value="hardlink">
+                  <span><strong>硬链接</strong><small>同盘不复制</small></span>
+                </label>
               </div>
             </fieldset>
           </div>
@@ -210,7 +219,7 @@
 
         <div id="library-selection-bar" class="library-selection-bar" hidden>
           <div><strong id="library-selected-count">0</strong><span>部已选</span></div>
-          <button id="preview-library-collect" class="primary-button" type="button">预览归集</button>
+          <button id="preview-library-collect" class="primary-button" type="button" disabled>选择影片后预览复制</button>
         </div>
       </main>
 
@@ -338,7 +347,7 @@
           </section>
           <section class="guide-step">
             <span class="guide-number">06</span>
-            <div><h2>建立片库并去重归集</h2><p>在“片库”中添加一个或多个来源目录，选择输出目录和文件处理方式。相同番号先归为一部影片；同番号、同大小且 SHA-256 一致的文件标为重复并跳过，不同内容保留为 V2 变体。</p></div>
+            <div><h2>建立片库并去重归集</h2><p>在“片库归集”中添加一个或多个来源目录，选择输出目录和文件处理方式。相同番号先归为一部影片；同番号、同大小且 SHA-256 一致的文件标为重复并跳过，不同内容保留为 V2 变体。</p></div>
             <div class="guide-output"><code>演员\ABP-123\ABP-123.mp4</code><code>演员\ABP-123\ABP-123-V2.mp4</code><code>重复源文件仍保留</code></div>
           </section>
         </div>

@@ -1,3 +1,8 @@
+/**
+ * 片库应用服务（可类比 Java 的 @Service）。它分成三个阶段：indexLibrary 建索引，
+ * previewCollection 生成不可直接执行的计划，applyCollection 再校验并执行计划。
+ * 这种两阶段设计保证 UI 一定能先展示复制/移动/硬链接的完整影响范围。
+ */
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
@@ -29,6 +34,7 @@ function normalizeMode(value) {
   return ['copy', 'move', 'hardlink'].includes(value) ? value : 'copy';
 }
 
+// API 边界先把用户路径规范化为绝对路径，后续所有安全判断都基于同一表示形式。
 async function normalizeLocations(sourceInput, outputInput) {
   const rawSources = Array.isArray(sourceInput) ? sourceInput : [];
   const sources = [...new Set(rawSources.map((entry) => path.resolve(String(entry ?? '').trim())).filter(Boolean))];
@@ -53,6 +59,7 @@ async function normalizeLocations(sourceInput, outputInput) {
   return { sources, outputDirectory };
 }
 
+// 流式计算 SHA-256，固定使用 1 MiB 缓冲区，避免大视频一次性读入内存。
 async function hashFile(filePath) {
   const hash = crypto.createHash('sha256');
   const handle = await fs.open(filePath, 'r');
@@ -123,6 +130,10 @@ function groupBy(values, key) {
   return result;
 }
 
+/**
+ * 聚合多个来源目录。先按番号分组，再只对“同番号且同大小”的候选计算 SHA-256，
+ * 以减少扫描大型片库时不必要的磁盘读取。
+ */
 export async function indexLibrary(input = {}, settings = {}) {
   const requestedSources = input.sourceDirectories ?? settings.library?.sources;
   const requestedOutput = input.outputDirectory ?? settings.library?.outputDirectory;
@@ -164,6 +175,7 @@ export async function indexLibrary(input = {}, settings = {}) {
     group.sort((left, right) => candidateScore(left) - candidateScore(right)
       || left.name.length - right.name.length
       || left.path.localeCompare(right.path, 'zh-CN', { numeric: true }));
+    // 大小不同必然不是同一内容；大小相同才进入成本更高的哈希阶段。
     const sizeGroups = groupBy(group, (item) => item.size);
     for (const sameSize of sizeGroups.values()) {
       if (sameSize.length < 2) continue;
@@ -171,6 +183,7 @@ export async function indexLibrary(input = {}, settings = {}) {
       for (const item of sameSize) item.contentHash = await hashFile(item.path);
     }
 
+    // 每个哈希保留首个文件为主版本，其余只标记 duplicateOf，不在索引阶段删除。
     const firstByHash = new Map();
     for (const item of group) {
       item.duplicateOf = '';
@@ -278,6 +291,10 @@ async function chooseVideoTarget(directory, stem, extension, source, knownHash, 
   throw apiError(`无法为 ${path.basename(source)} 分配可用目标名称`);
 }
 
+/**
+ * 生成归集计划，不改动文件。每个 action 都带 ready/duplicate/error 状态，
+ * 因而调用方可以跳过错误和重复项，只执行明确安全的 ready 项。
+ */
 export async function previewCollection(input = {}, settings = {}) {
   const mode = normalizeMode(input.fileMode ?? settings.library?.fileMode);
   const indexed = await indexLibrary(input, settings);
@@ -374,6 +391,10 @@ export async function previewCollection(input = {}, settings = {}) {
   };
 }
 
+/**
+ * 执行预览计划。即使 action 来自本应用，也按不可信 DTO 重新验证源/目标边界，
+ * 防止调用者篡改路径后越过来源目录或输出目录。
+ */
 export async function applyCollection(input = {}) {
   const mode = normalizeMode(input.fileMode);
   const { sources, outputDirectory } = await normalizeLocations(input.sourceDirectories, input.outputDirectory);
@@ -401,6 +422,7 @@ export async function applyCollection(input = {}) {
           await fs.rename(source, target);
         } catch (moveError) {
           if (moveError.code !== 'EXDEV') throw moveError;
+          // Java NIO 的跨 FileStore move 也可能失败；跨卷时先独占复制，成功后再删源。
           await fs.copyFile(source, target, fsConstants.COPYFILE_EXCL);
           await fs.unlink(source);
         }

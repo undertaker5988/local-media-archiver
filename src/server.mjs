@@ -1,3 +1,7 @@
+/**
+ * 本地 HTTP 入口，职责接近一个不依赖框架的 Spring Boot Controller。
+ * handleApi 只做路由和 DTO 转发，文件扫描、重命名、归集等业务放在 src/lib 的 Service 模块中。
+ */
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -37,6 +41,7 @@ function sendJson(response, statusCode, data) {
   response.end(JSON.stringify(data));
 }
 
+/** 读取并限制请求体大小，作用类似 Controller 层统一的 JSON 参数解析。 */
 async function readJson(request) {
   const chunks = [];
   let size = 0;
@@ -58,6 +63,10 @@ function openLocalPage() {
   execFile('cmd.exe', ['/c', 'start', '', `http://${host}:${port}`], { windowsHide: true }, () => {});
 }
 
+/**
+ * 前置路由（Front Controller）：根据 method + pathname 分派到对应 Service。
+ * Service 抛出的 statusCode 会在最外层统一转换为 HTTP 状态码。
+ */
 async function handleApi(request, response, pathname) {
   if (request.method === 'GET' && pathname === '/api/health') {
     return sendJson(response, 200, { ok: true, version: '0.1.0' });
@@ -132,6 +141,7 @@ async function handleApi(request, response, pathname) {
   return sendJson(response, 404, { error: 'API 不存在' });
 }
 
+// 静态资源只允许从 publicDirectory 读取，路径越界会在 resolve 后被拒绝。
 async function serveStatic(response, pathname) {
   const requested = pathname === '/' ? 'index.html' : decodeURIComponent(pathname.slice(1));
   const filePath = path.resolve(publicDirectory, requested);
@@ -153,6 +163,7 @@ async function serveStatic(response, pathname) {
   }
 }
 
+// 统一异常边界类似 Spring 的 @ControllerAdvice，避免把堆栈和本机路径返回给页面。
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || `${host}:${port}`}`);
   try {

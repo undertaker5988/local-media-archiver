@@ -1,9 +1,14 @@
+/**
+ * 纯函数形式的文件名领域服务：输入字符串和配置，输出解析/命名结果，不访问文件系统。
+ * Java 开发中可以把它理解为无状态的 Parser + NamingPolicy。
+ */
 import path from 'node:path';
 
 const URL_PATTERN = /(?:https?:\/\/|www\.)[^\s[\](){}]+|\b[a-z0-9-]+\.(?:com|net|org|cc|xyz|top|me|tv|cn)\b/gi;
 const AD_PATTERN = /\b(?:hexjs|hhd800|bbs2048|thzu|javbus|javdb|sexinsex|sis001|yase|u9a9|fulibus|1024)\b/gi;
 const INVALID_FILENAME_CHARACTERS = /[<>:"/\\|?*\u0000-\u001f]/g;
 
+// 规则按“供应商专用 -> 通用 -> 紧凑通用”排序；首次命中即返回，调整顺序会改变识别结果。
 const CODE_RULES = [
   {
     id: 'fc2',
@@ -83,6 +88,7 @@ export function findAdvertisingMatches(input, extraAdKeywords = []) {
   });
 }
 
+// 清理只作用于用于识别的 stem，不直接改文件名；最终名称仍需通过模板和预览生成。
 export function cleanStem(input, extraAdKeywords = []) {
   let cleaned = input
     .replace(URL_PATTERN, ' ')
@@ -97,6 +103,7 @@ export function cleanStem(input, extraAdKeywords = []) {
     .trim();
 }
 
+// 人工矫正规则优先于自动识别结果，相当于可持久化的 override policy。
 function applyCorrectionRules(parsed, corrections = []) {
   const detectedCode = parsed.code;
   const source = detectedCode || parsed.cleanedStem;
@@ -132,6 +139,7 @@ function applyCorrectionRules(parsed, corrections = []) {
   return { ...parsed, detectedCode, correctionRuleId: '' };
 }
 
+/** 解析单个名称并返回番号、置信度、命中规则、分段号等结构化结果。 */
 export function parseMediaName(filename, options = {}) {
   const extension = path.extname(filename);
   const originalStem = path.basename(filename, extension);
@@ -175,6 +183,7 @@ function safeToken(value) {
   return String(value ?? '').replace(INVALID_FILENAME_CHARACTERS, '-').trim();
 }
 
+// 模板渲染前后都清理 Windows 非法字符，避免预览通过后在执行阶段才失败。
 export function renderNamingTemplate(template, context) {
   const values = {
     code: formatCode(safeToken(context.code), context.codeCase),

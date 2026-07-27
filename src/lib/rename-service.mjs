@@ -1,3 +1,7 @@
+/**
+ * 文件整理应用服务。previewRenameActions 负责校验并生成计划，applyRenameActions 执行计划；
+ * 可以类比 Java 中“校验 Command -> 生成执行计划 -> 事务式执行并尽力补偿”。
+ */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -21,6 +25,7 @@ function isWithin(root, target) {
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
 }
 
+/** 只读取文件状态，不修改磁盘；把每个冲突附着到对应 action 上供 UI 展示。 */
 export async function previewRenameActions(inputActions, options = {}) {
   if (!Array.isArray(inputActions) || !inputActions.length) throw new Error('没有可预览的重命名项');
   if (inputActions.length > 2000) throw new Error('单次最多处理 2000 个项目');
@@ -103,6 +108,7 @@ export async function previewRenameActions(inputActions, options = {}) {
   };
 }
 
+/** 执行前重新调用预览，防止用户打开预览后文件系统状态已经变化。 */
 export async function applyRenameActions(inputActions, options = {}) {
   const preview = await previewRenameActions(inputActions, options);
   if (!preview.valid && !options.skipErrors) {
@@ -114,6 +120,7 @@ export async function applyRenameActions(inputActions, options = {}) {
 
   const skipped = preview.actions.filter((action) => action.error);
   const priority = { file: 0, quarantine: 1, directory: 2, 'directory-move': 2 };
+  // 先改文件，再改目录；同类操作从深路径开始，避免父目录先移动导致子路径失效。
   const ordered = preview.actions
     .filter((action) => !action.noop && !action.error)
     .sort((a, b) => (priority[a.kind] === priority[b.kind] ? b.source.length - a.source.length : priority[a.kind] - priority[b.kind]));
@@ -125,6 +132,7 @@ export async function applyRenameActions(inputActions, options = {}) {
         await fs.mkdir(path.dirname(action.target), { recursive: true });
       }
       if (normalizeForComparison(action.source) === normalizeForComparison(action.target)) {
+        // Windows 默认大小写不敏感，纯大小写改名要经过唯一临时名才能可靠落盘。
         const temporary = path.join(path.dirname(action.source), `.__archive-${crypto.randomUUID()}${path.extname(action.source)}`);
         await fs.rename(action.source, temporary);
         await fs.rename(temporary, action.target);

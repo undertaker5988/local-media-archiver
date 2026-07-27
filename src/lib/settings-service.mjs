@@ -1,3 +1,7 @@
+/**
+ * 配置领域服务：DEFAULT_SETTINGS 类似 Java 配置对象的默认值，normalizeSettings 同时承担
+ * DTO 规范化和 Bean Validation 的职责，磁盘上只保存通过该入口校验后的结构。
+ */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -87,6 +91,7 @@ function normalizeDirectoryList(value) {
   return [...new Set(value.map((entry) => String(entry ?? '').trim()).filter(Boolean))].slice(0, 20);
 }
 
+/** 不信任页面传入对象；逐字段选取、限长并回退默认值，避免任意属性进入配置文件。 */
 export function normalizeSettings(input = {}) {
   const base = defaults();
   const naming = input.naming ?? {};
@@ -139,6 +144,7 @@ export function settingsFilePath() {
   return path.join(dataDirectory, 'settings.json');
 }
 
+// 配置不存在时返回深拷贝默认值；格式损坏则明确报错，不静默覆盖用户文件。
 export async function loadSettings() {
   try {
     return normalizeSettings(JSON.parse(await fs.readFile(settingsFilePath(), 'utf8')));
@@ -149,6 +155,7 @@ export async function loadSettings() {
   }
 }
 
+// 先完整校验再写盘，确保 settings.json 始终符合当前 schema。
 export async function saveSettings(input) {
   const settings = normalizeSettings(input);
   const filePath = settingsFilePath();
