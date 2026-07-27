@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>片库归档台</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand" aria-label="片库归档台">
+          <span class="brand-mark" aria-hidden="true">M</span>
+          <div>
+            <strong>片库归档台</strong>
+            <span>LOCAL ARCHIVE</span>
+          </div>
+        </div>
+        <nav class="top-nav" aria-label="主导航">
+          <button class="top-nav-button active" type="button" data-view="workspace" aria-current="page">整理</button>
+          <button class="top-nav-button" type="button" data-view="library">片库</button>
+          <button class="top-nav-button" type="button" data-view="settings">命名配置</button>
+          <button class="top-nav-button" type="button" data-view="guide">使用说明</button>
+        </nav>
+        <div class="server-state"><span class="state-dot"></span>仅本机</div>
+      </header>
+
+      <div id="workspace-view" class="workspace-view app-view">
+      <section class="sourcebar" aria-label="扫描目录">
+        <button id="pick-directory" class="quiet-button directory-button" type="button">浏览</button>
+        <label class="path-field">
+          <span>目录</span>
+          <input id="root-path" type="text" spellcheck="false" autocomplete="off" placeholder="D:\Downloads\Videos">
+        </label>
+        <label class="compact-field">
+          <span>深度</span>
+          <select id="scan-depth">
+            <option value="1">1 层</option>
+            <option value="3" selected>3 层</option>
+            <option value="5">5 层</option>
+            <option value="8">8 层</option>
+          </select>
+        </label>
+        <button id="scan-button" class="primary-button" type="button"><span aria-hidden="true">⌕</span>扫描目录</button>
+      </section>
+
+      <section class="summary-band" aria-label="扫描摘要">
+        <div class="summary-item"><span>影片</span><strong id="summary-videos">0</strong></div>
+        <div class="summary-item"><span>文件夹</span><strong id="summary-folders">0</strong></div>
+        <div class="summary-item warning"><span>缺字幕</span><strong id="summary-subtitles">0</strong></div>
+        <div class="summary-item danger"><span>待确认</span><strong id="summary-review">0</strong></div>
+        <div class="summary-item"><span>可重命名</span><strong id="summary-ready">0</strong></div>
+        <div class="summary-item warning"><span>广告杂质</span><strong id="summary-junk">0</strong></div>
+        <div class="summary-item"><span>演员归档</span><strong id="summary-archive">0</strong></div>
+        <div class="summary-meta" id="scan-meta">尚未扫描</div>
+      </section>
+
+      <main class="workbench">
+        <section class="library-pane" aria-label="文件整理列表">
+          <div class="pane-toolbar">
+            <div class="tabs" role="tablist" aria-label="筛选">
+              <button class="tab active" data-filter="all" role="tab" aria-selected="true">全部 <span id="count-all">0</span></button>
+              <button class="tab" data-filter="ready" role="tab" aria-selected="false">可整理 <span id="count-ready">0</span></button>
+              <button class="tab" data-filter="missing" role="tab" aria-selected="false">缺字幕 <span id="count-missing">0</span></button>
+              <button class="tab" data-filter="review" role="tab" aria-selected="false">待确认 <span id="count-review">0</span></button>
+            </div>
+            <label class="search-field">
+              <span aria-hidden="true">⌕</span>
+              <input id="table-search" type="search" placeholder="筛选名称或番号" aria-label="筛选名称或番号">
+            </label>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <colgroup>
+                <col class="col-check">
+                <col class="col-source">
+                <col class="col-code">
+                <col class="col-subtitle">
+                <col class="col-metadata">
+                <col class="col-target">
+                <col class="col-action">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th><input id="select-all" type="checkbox" aria-label="选择全部可见项目"></th>
+                  <th>源文件</th>
+                  <th>识别番号</th>
+                  <th>字幕</th>
+                  <th>资料</th>
+                  <th>目标文件 / 归档目录</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="media-rows"></tbody>
+            </table>
+            <div id="empty-state" class="empty-state">
+              <div class="empty-symbol" aria-hidden="true">⌕</div>
+              <strong>尚未扫描目录</strong>
+              <span>选择下载目录后开始整理</span>
+            </div>
+          </div>
+        </section>
+
+        <aside id="inspector" class="inspector" aria-label="影片信息">
+          <div class="inspector-header">
+            <div>
+              <span class="eyebrow">影片资料</span>
+              <h2 id="inspector-code">未选择</h2>
+            </div>
+            <button id="close-inspector" class="icon-button inspector-close" type="button" aria-label="关闭资料面板" title="关闭">×</button>
+          </div>
+
+          <div id="inspector-empty" class="inspector-empty">从列表选择一部影片</div>
+          <div id="inspector-content" class="inspector-content" hidden>
+            <div class="cover-frame">
+              <img id="cover-image" alt="影片封面" hidden>
+              <div id="cover-placeholder" class="cover-placeholder"><span>NO COVER</span></div>
+              <span id="metadata-origin" class="cover-label">本地草稿</span>
+            </div>
+
+            <div class="scrape-row">
+              <select id="scrape-provider" aria-label="刮削源"></select>
+              <button id="scrape-button" class="secondary-button" type="button"><span aria-hidden="true">↻</span>刮削</button>
+            </div>
+
+            <div class="metadata-form">
+              <label><span>标题</span><textarea id="meta-title" rows="2"></textarea></label>
+              <div class="form-grid">
+                <label><span>发行日期</span><input id="meta-date" type="text" placeholder="YYYY-MM-DD"></label>
+                <label><span>时长（分钟）</span><input id="meta-runtime" type="number" min="0"></label>
+              </div>
+              <div class="form-grid">
+                <label><span>制作商</span><input id="meta-studio" type="text"></label>
+                <label><span>导演</span><input id="meta-director" type="text"></label>
+              </div>
+              <label><span>系列</span><input id="meta-series" type="text"></label>
+              <label><span>演员</span><textarea id="meta-actors" rows="2" placeholder="多位演员用逗号分隔"></textarea></label>
+              <label><span>标签</span><textarea id="meta-genres" rows="2" placeholder="多个标签用逗号分隔"></textarea></label>
+            </div>
+
+            <div class="save-options">
+              <label class="check-label"><input id="download-cover" type="checkbox" checked>下载封面</label>
+              <label class="check-label"><input id="overwrite-metadata" type="checkbox">覆盖已有资料</label>
+            </div>
+            <button id="save-metadata" class="primary-button full-width" type="button">保存 NFO 与 JSON</button>
+          </div>
+        </aside>
+      </main>
+      </div>
+
+      <main id="library-view" class="library-view app-view" hidden>
+        <header class="page-heading library-heading">
+          <div>
+            <span class="eyebrow">本地资料库</span>
+            <h1>片库</h1>
+            <p id="library-index-meta">尚未建立索引</p>
+          </div>
+          <button id="index-library" class="primary-button" type="button">刷新片库</button>
+        </header>
+
+        <section class="library-config-band" aria-label="片库目录配置">
+          <div class="library-config-inner">
+            <div class="library-source-config">
+              <div class="library-control-heading"><span>来源目录</span><button id="add-library-source" class="secondary-button" type="button">添加目录</button></div>
+              <div id="library-source-list" class="library-source-list"></div>
+              <div id="library-source-empty" class="library-source-empty">尚未添加来源目录</div>
+            </div>
+            <div class="library-output-config">
+              <span class="library-control-label">输出目录</span>
+              <div class="library-path-row">
+                <input id="library-output" type="text" spellcheck="false" autocomplete="off" placeholder="默认：第一个来源目录\整理完成">
+                <button id="pick-library-output" class="quiet-button" type="button">浏览</button>
+              </div>
+              <span id="library-output-effective" class="library-effective-path"></span>
+            </div>
+            <fieldset class="library-mode-config">
+              <legend>文件处理</legend>
+              <div class="segmented-control">
+                <label><input type="radio" name="library-mode" value="copy" checked><span>复制</span></label>
+                <label><input type="radio" name="library-mode" value="move"><span>移动</span></label>
+                <label><input type="radio" name="library-mode" value="hardlink"><span>硬链接</span></label>
+              </div>
+            </fieldset>
+          </div>
+        </section>
+
+        <section class="library-summary-band" aria-label="片库摘要">
+          <div><span>影片</span><strong id="library-summary-movies">0</strong></div>
+          <div><span>视频文件</span><strong id="library-summary-files">0</strong></div>
+          <div class="warning"><span>重复文件</span><strong id="library-summary-duplicates">0</strong></div>
+          <div class="warning"><span>缺演员</span><strong id="library-summary-actors">0</strong></div>
+          <div class="danger"><span>未识别</span><strong id="library-summary-unmatched">0</strong></div>
+        </section>
+
+        <div class="library-toolbar">
+          <label class="library-select-all"><input id="library-select-all" type="checkbox">选择当前结果</label>
+          <label class="search-field library-search"><span aria-hidden="true">⌕</span><input id="library-search" type="search" placeholder="搜索番号、标题或演员" aria-label="搜索片库"></label>
+          <span id="library-result-count">0 部影片</span>
+        </div>
+
+        <section class="library-catalog" aria-label="影片目录">
+          <div id="library-grid" class="library-grid"></div>
+          <div id="library-empty" class="library-catalog-empty">
+            <strong>片库尚未建立</strong>
+            <span>添加来源目录后刷新片库</span>
+          </div>
+        </section>
+
+        <div id="library-selection-bar" class="library-selection-bar" hidden>
+          <div><strong id="library-selected-count">0</strong><span>部已选</span></div>
+          <button id="preview-library-collect" class="primary-button" type="button">预览归集</button>
+        </div>
+      </main>
+
+      <main id="settings-view" class="settings-view app-view" hidden>
+        <header class="page-heading">
+          <div>
+            <span class="eyebrow">归档规则</span>
+            <h1>命名配置</h1>
+            <p id="settings-path">本地配置</p>
+          </div>
+          <div class="page-actions">
+            <button id="reset-settings" class="quiet-button" type="button">恢复默认</button>
+            <button id="save-settings" class="primary-button" type="button">保存配置</button>
+          </div>
+        </header>
+
+        <div class="settings-scroll">
+          <section class="settings-section" aria-labelledby="naming-heading">
+            <div class="section-heading">
+              <div><span class="section-index">01</span><h2 id="naming-heading">命名模板</h2></div>
+              <span>变量会在扫描和手工矫正后统一计算</span>
+            </div>
+            <div class="settings-two-column">
+              <div class="settings-fields">
+                <label class="settings-field"><span>视频文件</span><input id="setting-video-template" class="template-input" type="text" spellcheck="false"></label>
+                <label class="settings-field"><span>字幕文件</span><input id="setting-subtitle-template" class="template-input" type="text" spellcheck="false"></label>
+                <label class="settings-field"><span>文件夹</span><input id="setting-folder-template" class="template-input" type="text" spellcheck="false"></label>
+                <label class="settings-field compact-setting"><span>番号大小写</span>
+                  <select id="setting-code-case">
+                    <option value="upper">大写</option>
+                    <option value="lower">小写</option>
+                    <option value="preserve">保持规则结果</option>
+                  </select>
+                </label>
+                <div class="token-toolbar" aria-label="可用变量">
+                  <span>插入变量</span>
+                  <button type="button" data-token="{code}">{code}</button>
+                  <button type="button" data-token="{part}">{part}</button>
+                  <button type="button" data-token="{title}">{title}</button>
+                  <button type="button" data-token="{actor}">{actor}</button>
+                  <button type="button" data-token="{studio}">{studio}</button>
+                  <button type="button" data-token="{year}">{year}</button>
+                  <button type="button" data-token="{lang}">{lang}</button>
+                  <button type="button" data-token="{ext}">{ext}</button>
+                  <button type="button" data-token="{original}">{original}</button>
+                </div>
+              </div>
+              <div class="naming-preview-pane">
+                <div class="preview-pane-header"><strong>本批次预览</strong><span id="settings-preview-source">内置样例</span></div>
+                <div id="settings-preview" class="settings-preview"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section" aria-labelledby="scan-settings-heading">
+            <div class="section-heading">
+              <div><span class="section-index">02</span><h2 id="scan-settings-heading">扫描与清理</h2></div>
+            </div>
+            <div class="scan-settings-grid">
+              <label class="settings-field compact-setting"><span>默认扫描深度</span>
+                <select id="setting-scan-depth">
+                  <option value="1">1 层</option><option value="3">3 层</option><option value="5">5 层</option><option value="8">8 层</option>
+                </select>
+              </label>
+              <label class="binary-setting" title="按文件夹模板修改影片当前所在文件夹的名称，不改变它的上级目录"><input id="setting-rename-folders" type="checkbox"><span>默认勾选重命名所在文件夹</span></label>
+              <label class="binary-setting"><input id="setting-quarantine-junk" type="checkbox"><span>默认勾选隔离广告文件</span></label>
+              <label class="settings-field keyword-setting"><span>广告关键词（命中后从文件名移除）</span><textarea id="setting-ad-keywords" rows="3" placeholder="每行一个关键词，如 hexjs"></textarea></label>
+            </div>
+          </section>
+
+          <section class="settings-section" aria-labelledby="actor-archive-heading">
+            <div class="section-heading">
+              <div><span class="section-index">03</span><h2 id="actor-archive-heading">按演员归档</h2></div>
+              <span>使用影片资料中的第一位演员；缺少演员时会阻止该项归档</span>
+            </div>
+            <div class="archive-settings-grid">
+              <label class="binary-setting"><input id="setting-archive-by-actor" type="checkbox"><span>默认勾选按演员归档</span></label>
+              <label class="settings-field"><span>演员目录模板</span><input id="setting-actor-folder-template" class="template-input" type="text" spellcheck="false" placeholder="{actor}"></label>
+              <div class="archive-example"><span>目录结构预览</span><code>{actor}\{code}\{code}{ext}</code></div>
+            </div>
+          </section>
+
+          <section class="settings-section" aria-labelledby="correction-heading">
+            <div class="section-heading correction-heading">
+              <div><span class="section-index">04</span><h2 id="correction-heading">识别矫正规则</h2></div>
+              <button id="new-correction" class="secondary-button" type="button">新建规则</button>
+            </div>
+            <div class="correction-table-header"><span>启用</span><span>匹配值</span><span>替换为</span><span>方式</span><span></span></div>
+            <div id="correction-rules" class="correction-rules"></div>
+            <div id="correction-empty" class="inline-empty">暂无规则。也可以在整理表格中手工改番号后，将该次矫正记为规则。</div>
+          </section>
+        </div>
+      </main>
+
+      <main id="guide-view" class="guide-view app-view" hidden>
+        <header class="page-heading">
+          <div><span class="eyebrow">操作手册</span><h1>使用说明</h1><p>所有文件改动都要经过独立预览和确认</p></div>
+          <button class="primary-button" type="button" data-view-link="workspace">开始整理</button>
+        </header>
+        <div class="guide-scroll">
+          <section class="guide-step">
+            <span class="guide-number">01</span>
+            <div><h2>扫描并核对</h2><p>选择下载目录并扫描。表格会同时显示源文件、识别番号和目标文件名；缺字幕、低置信度和未识别项目会单独标记。</p></div>
+            <div class="guide-example"><span>原文件</span><code>1pondo1111-111 hexjs.com.mp4</code><span>建议名称</span><code>1PONDO-1111-111.mp4</code></div>
+          </section>
+          <section class="guide-step">
+            <span class="guide-number">02</span>
+            <div><h2>手工矫正与沉淀规则</h2><p>番号和目标文件名都可以直接改。修改番号后点击旁边的“记住规则”，可选择只保存给未来扫描，或立即重新扫描并回溯应用到当前批次。</p></div>
+            <div class="guide-statuses"><span class="status-pill ok">自动识别</span><span class="status-pill warn">需确认</span><span class="status-pill danger">未识别</span></div>
+          </section>
+          <section class="guide-step">
+            <span class="guide-number">03</span>
+            <div><h2>去广告并预览执行</h2><p>文件名中的网址和广告关键词会自动从建议名称中去除。勾选“隔离广告”后，扫描出的广告文件会连同重命名一起预览，再移入根目录下的 .media-archiver-trash。</p></div>
+            <div class="guide-note"><strong>“重命名所在文件夹”只改名称</strong><span>例如把“ABP-123 download”改为“ABP-123”，不会移动上级目录；“按演员归档”才会移动目录。</span></div>
+          </section>
+          <section class="guide-step">
+            <span class="guide-number">04</span>
+            <div><h2>按演员归档</h2><p>先刮削或手工补全演员，再勾选“按演员归档”。预览会显示完整的“演员 / 影片文件夹”目标；没有演员资料或只选择了文件夹中的部分影片时不会执行移动。</p></div>
+            <div class="guide-output"><code>示例演员\ABP-123\ABP-123.mp4</code><code>示例演员\ABP-123\.media-archive.json</code></div>
+          </section>
+          <section class="guide-step">
+            <span class="guide-number">05</span>
+            <div><h2>刮削并保存资料</h2><p>从行尾打开影片资料，可在线刮削或手工补全标题、演员、制作商和标签。保存后会生成 NFO、JSON，并可下载封面。</p></div>
+            <div class="guide-output"><code>ABP-123.nfo</code><code>.media-archive.json</code><code>ABP-123-poster.jpg</code></div>
+          </section>
+          <section class="guide-step">
+            <span class="guide-number">06</span>
+            <div><h2>建立片库并去重归集</h2><p>在“片库”中添加一个或多个来源目录，选择输出目录和文件处理方式。相同番号先归为一部影片；同番号、同大小且 SHA-256 一致的文件标为重复并跳过，不同内容保留为 V2 变体。</p></div>
+            <div class="guide-output"><code>演员\ABP-123\ABP-123.mp4</code><code>演员\ABP-123\ABP-123-V2.mp4</code><code>重复源文件仍保留</code></div>
+          </section>
+        </div>
+      </main>
+
+      <div id="selection-bar" class="selection-bar" hidden>
+        <div><strong id="selected-count">0</strong><span>项已选</span></div>
+        <label class="switch-label" title="按文件夹模板修改当前影片文件夹名称，不改变上级目录">
+          <input id="rename-folders" type="checkbox">
+          <span class="switch" aria-hidden="true"></span>
+          重命名所在文件夹
+        </label>
+        <label class="switch-label">
+          <input id="quarantine-ads" type="checkbox">
+          <span class="switch" aria-hidden="true"></span>
+          隔离广告
+        </label>
+        <label class="switch-label">
+          <input id="archive-by-actor" type="checkbox">
+          <span class="switch" aria-hidden="true"></span>
+          按演员归档
+        </label>
+        <button id="batch-scrape" class="quiet-button" type="button">批量刮削</button>
+        <button id="preview-rename" class="primary-button" type="button">预览整理</button>
+      </div>
+
+      <aside id="task-panel" class="task-panel" aria-label="任务进度" hidden>
+        <div class="task-panel-header">
+          <div><span class="eyebrow">任务进度</span><strong id="task-title">等待任务</strong></div>
+          <button id="close-task-panel" class="icon-button" type="button" aria-label="关闭任务日志" title="关闭">×</button>
+        </div>
+        <div class="task-progress-row">
+          <span id="task-status">准备中</span>
+          <span id="task-count">0 / 0</span>
+        </div>
+        <progress id="task-progress" max="1" value="0"></progress>
+        <div id="task-log" class="task-log" aria-live="polite"></div>
+      </aside>
+    </div>
+
+    <dialog id="directory-dialog" class="preview-dialog directory-dialog">
+      <div class="dialog-header">
+        <div><span class="eyebrow">本机文件系统</span><h2 id="directory-dialog-title">选择扫描目录</h2></div>
+        <button id="close-directory" class="icon-button" type="button" aria-label="关闭目录选择" title="关闭">×</button>
+      </div>
+      <div class="directory-dialog-body">
+        <div class="directory-location-row">
+          <label class="path-field directory-path-field">
+            <span>当前路径</span>
+            <input id="directory-path" type="text" spellcheck="false" autocomplete="off">
+          </label>
+          <button id="directory-go" class="secondary-button" type="button">转到</button>
+        </div>
+        <div class="directory-toolbar">
+          <button id="directory-up" class="quiet-button" type="button">上一级</button>
+          <div id="directory-roots" class="directory-roots" aria-label="可用磁盘"></div>
+        </div>
+        <div id="directory-list" class="directory-list" aria-live="polite"></div>
+        <div id="directory-empty" class="directory-empty" hidden>此目录没有子文件夹，可以直接选择当前目录。</div>
+      </div>
+      <div class="dialog-actions">
+        <button id="cancel-directory" class="quiet-button" type="button">取消</button>
+        <button id="select-directory" class="primary-button" type="button">选择此目录</button>
+      </div>
+    </dialog>
+
+    <dialog id="library-collect-dialog" class="preview-dialog library-collect-dialog">
+      <div class="dialog-header">
+        <div><span class="eyebrow">执行前检查</span><h2>归集预览</h2></div>
+        <button id="close-library-collect" class="icon-button" type="button" aria-label="关闭归集预览" title="关闭">×</button>
+      </div>
+      <div id="library-collect-summary" class="preview-summary"></div>
+      <div id="library-collect-list" class="preview-list library-collect-list"></div>
+      <div class="dialog-actions">
+        <button id="cancel-library-collect" class="quiet-button" type="button">取消</button>
+        <button id="apply-library-collect" class="primary-button" type="button">执行可用项</button>
+      </div>
+    </dialog>
+
+    <dialog id="preview-dialog" class="preview-dialog">
+      <div class="dialog-header">
+        <div><span class="eyebrow">执行前检查</span><h2>整理预览</h2></div>
+        <button id="close-preview" class="icon-button" type="button" aria-label="关闭预览" title="关闭">×</button>
+      </div>
+      <div id="preview-summary" class="preview-summary"></div>
+      <div id="preview-list" class="preview-list"></div>
+      <div class="dialog-actions">
+        <button id="cancel-preview" class="quiet-button" type="button">取消</button>
+        <button id="apply-rename" class="primary-button" type="button">执行可用项</button>
+      </div>
+    </dialog>
+
+    <dialog id="correction-dialog" class="preview-dialog correction-dialog">
+      <div class="dialog-header">
+        <div><span class="eyebrow">识别矫正</span><h2 id="correction-dialog-title">记住这次矫正</h2></div>
+        <button id="close-correction" class="icon-button" type="button" aria-label="关闭矫正规则" title="关闭">×</button>
+      </div>
+      <div class="correction-form">
+        <label><span>匹配值</span><input id="correction-pattern" type="text" spellcheck="false"></label>
+        <label><span>替换为</span><input id="correction-replacement" type="text" spellcheck="false"></label>
+        <label><span>匹配方式</span>
+          <select id="correction-type"><option value="exact">精确匹配</option><option value="regex">正则表达式</option></select>
+        </label>
+        <label class="binary-setting retrospective-setting"><input id="correction-retrospective" type="checkbox" checked><span>保存后重新扫描，回溯应用到当前批次</span></label>
+      </div>
+      <div class="dialog-actions">
+        <button id="cancel-correction" class="quiet-button" type="button">取消</button>
+        <button id="save-correction" class="primary-button" type="button">保存规则</button>
+      </div>
+    </dialog>
+
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

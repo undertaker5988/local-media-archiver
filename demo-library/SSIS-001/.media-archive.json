@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "code": "SSIS-001",
+  "metadata": {
+    "code": "SSIS-001",
+    "title": "演示影片：多段视频与字幕",
+    "releaseDate": "2026-07-02",
+    "studio": "本地演示片商",
+    "actors": ["演示演员乙"],
+    "genres": ["演示数据"],
+    "coverUrl": ""
+  }
+}

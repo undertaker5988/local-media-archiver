@@ -1,0 +1,15 @@
+{
+  "name": "local-media-archiver",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A local-first video folder cleanup and metadata scraping workbench.",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "dev": "node --watch src/server.mjs",
+    "test": "node test/all.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
