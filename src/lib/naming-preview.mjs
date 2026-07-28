@@ -3,7 +3,7 @@ import { parseMediaName, suggestedFolderName, suggestedMediaName, suggestedSubti
 import { normalizeSettings } from './settings-service.mjs';
 
 const DEFAULT_SAMPLES = [
-  { kind: 'video', name: '1pondo1111-111 hexjs.com.mp4', metadata: { title: 'Sample title', actors: ['Actor A'], studio: 'Studio A', releaseDate: '2025-06-01' } },
+  { kind: 'video', name: '1pondo010123_001 hexjs.com.mp4', metadata: { title: 'Sample title', actors: ['Actor A'], studio: 'Studio A', releaseDate: '2023-01-01' } },
   { kind: 'video', name: 'ABP-123-CD2.mkv', metadata: { title: 'Sample title', actors: ['Actor A'], studio: 'Studio A', releaseDate: '2025-06-01' } },
   { kind: 'subtitle', name: 'ABP-123.zh_CN.srt' },
   { kind: 'folder', name: 'ABP-123 download folder', code: 'ABP-123' },

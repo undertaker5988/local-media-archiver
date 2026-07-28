@@ -8,6 +8,11 @@ const URL_PATTERN = /(?:https?:\/\/|www\.)[^\s[\](){}]+|\b[a-z0-9-]+\.(?:com|net
 const AD_PATTERN = /\b(?:hexjs|hhd800|bbs2048|thzu|javbus|javdb|sexinsex|sis001|yase|u9a9|fulibus|1024)\b/gi;
 const INVALID_FILENAME_CHARACTERS = /[<>:"/\\|?*\u0000-\u001f]/g;
 
+function normalizeDateCode(parts, separator) {
+  const [prefixDate, prefixSequence, suffixDate, suffixSequence] = parts;
+  return `${prefixDate ?? suffixDate}${separator}${prefixSequence ?? suffixSequence}`;
+}
+
 // 规则按“供应商专用 -> 通用 -> 紧凑通用”排序；首次命中即返回，调整顺序会改变识别结果。
 const CODE_RULES = [
   {
@@ -18,27 +23,35 @@ const CODE_RULES = [
   },
   {
     id: '1pondo',
-    pattern: /\b1pondo[-_.\s]*(\d{4,8})[-_.\s]+(\d{2,4})\b/i,
-    normalize: ([date, sequence]) => `1PONDO-${date}-${sequence}`,
+    // MDC/JavSP 使用 6 位发布日期 + 3 位序号；Javinizer-Go 还接受末尾带 -1PON 的形式。
+    pattern: /(?:\b(?:1pondo|1pon)[-_.\s]*(\d{6})[-_.\s]+(\d{3})\b|\b(\d{6})[-_](\d{3})[-_.\s]*(?:1pondo|1pon)\b)/i,
+    normalize: (parts) => normalizeDateCode(parts, '_'),
     confidence: 0.99,
   },
   {
     id: 'caribbeancom',
-    pattern: /\b(?:caribbeancom|carib)[-_.\s]*(\d{4,8})[-_.\s]+(\d{2,4})\b/i,
-    normalize: ([date, sequence]) => `CARIB-${date}-${sequence}`,
+    pattern: /(?:\b(?:caribbeancom|carib)[-_.\s]*(\d{6})[-_.\s]+(\d{3})\b|\b(\d{6})[-_](\d{3})[-_.\s]*(?:caribbeancom|carib)\b)/i,
+    normalize: (parts) => normalizeDateCode(parts, '-'),
     confidence: 0.98,
   },
   {
     id: '10musume',
-    pattern: /\b10musume[-_.\s]*(\d{4,8})[-_.\s]+(\d{1,4})\b/i,
-    normalize: ([date, sequence]) => `10MUSUME-${date}-${sequence.padStart(2, '0')}`,
+    pattern: /(?:\b(?:10musume|10mu)[-_.\s]*(\d{6})[-_.\s]+(\d{2})\b|\b(\d{6})[-_](\d{2})[-_.\s]*(?:10musume|10mu)\b)/i,
+    normalize: (parts) => normalizeDateCode(parts, '_'),
     confidence: 0.98,
   },
   {
     id: 'pacopacomama',
-    pattern: /\b(?:pacopacomama|paco)[-_.\s]*(\d{4,8})[-_.\s]+(\d{1,4})\b/i,
-    normalize: ([date, sequence]) => `PACOPACOMAMA-${date}-${sequence}`,
+    pattern: /(?:\b(?:pacopacomama|paco)[-_.\s]*(\d{6})[-_.\s]+(\d{3})\b|\b(\d{6})[-_](\d{3})[-_.\s]*(?:pacopacomama|paco)\b)/i,
+    normalize: (parts) => normalizeDateCode(parts, '_'),
     confidence: 0.98,
+  },
+  {
+    id: 'uncensored-date',
+    // 没有厂商标记时保留原分隔符，避免擅自猜测影片来自哪个站点。
+    pattern: /\b(\d{6})([-_])(\d{2,3})\b/,
+    normalize: ([date, separator, sequence]) => `${date}${separator}${sequence}`,
+    confidence: 0.9,
   },
   {
     id: 'heyzo',
@@ -49,7 +62,7 @@ const CODE_RULES = [
   {
     id: 'tokyo-hot',
     pattern: /\b(?:tokyo[-_.\s]*hot[-_.\s]*)?(n\d{3,6})\b/i,
-    normalize: ([number]) => `TOKYO-HOT-${number.toUpperCase()}`,
+    normalize: ([number]) => number.toUpperCase(),
     confidence: 0.93,
   },
   {

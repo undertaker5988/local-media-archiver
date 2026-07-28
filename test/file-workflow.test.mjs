@@ -10,8 +10,8 @@ async function fixture() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'media-archiver-'));
   const folder = path.join(root, 'download-ad-folder');
   await fs.mkdir(folder);
-  await fs.writeFile(path.join(folder, '1pondo1111-111 hexjs.com.mp4'), Buffer.alloc(64));
-  await fs.writeFile(path.join(folder, '1pondo1111-111 hexjs.com.zh_CN.srt'), 'subtitle');
+  await fs.writeFile(path.join(folder, '1pondo010123_001 hexjs.com.mp4'), Buffer.alloc(64));
+  await fs.writeFile(path.join(folder, '1pondo010123_001 hexjs.com.zh_CN.srt'), 'subtitle');
   await fs.writeFile(path.join(folder, '最新地址.url'), '[InternetShortcut]');
   return { root, folder };
 }
@@ -25,20 +25,20 @@ test('scans a folder, pairs subtitles, and reports junk', async (t) => {
   assert.equal(result.summary.junk, 1);
   assert.deepEqual(result.items[0].cleanedAds, ['hexjs.com']);
   assert.equal(result.items[0].junk[0].name, '最新地址.url');
-  assert.equal(result.items[0].suggestedName, '1PONDO-1111-111.mp4');
-  assert.equal(result.items[0].subtitles[0].suggestedName, '1PONDO-1111-111.zh-CN.srt');
+  assert.equal(result.items[0].suggestedName, '010123_001.mp4');
+  assert.equal(result.items[0].subtitles[0].suggestedName, '010123_001.zh-CN.srt');
 });
 
 test('previews actor archive targets from local metadata', async (t) => {
   const { root, folder } = await fixture();
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   await fs.writeFile(path.join(folder, '.media-archive.json'), JSON.stringify({
-    code: '1PONDO-1111-111',
+    code: '010123_001',
     metadata: { actors: ['Actor A'] },
   }));
   const result = await scanLibrary(root, { maxDepth: 2 });
   assert.equal(result.summary.archiveReady, 1);
-  assert.equal(result.items[0].archiveRelativePath, path.join('Actor A', '1PONDO-1111-111'));
+  assert.equal(result.items[0].archiveRelativePath, path.join('Actor A', '010123_001'));
 });
 
 test('does not assign one subtitle to every video in a multi-video folder', async (t) => {
@@ -54,21 +54,21 @@ test('does not assign one subtitle to every video in a multi-video folder', asyn
 test('previews and applies a file rename without overwriting', async (t) => {
   const { root, folder } = await fixture();
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  const source = path.join(folder, '1pondo1111-111 hexjs.com.mp4');
-  const actions = [{ source, targetName: '1PONDO-1111-111.mp4', kind: 'file' }];
+  const source = path.join(folder, '1pondo010123_001 hexjs.com.mp4');
+  const actions = [{ source, targetName: '010123_001.mp4', kind: 'file' }];
   const preview = await previewRenameActions(actions);
   assert.equal(preview.valid, true);
   assert.equal(preview.changes, 1);
   const result = await applyRenameActions(actions);
   assert.equal(result.renamed, 1);
-  await assert.doesNotReject(fs.access(path.join(folder, '1PONDO-1111-111.mp4')));
+  await assert.doesNotReject(fs.access(path.join(folder, '010123_001.mp4')));
   await assert.rejects(fs.access(source));
 });
 
 test('rejects invalid names and existing targets', async (t) => {
   const { root, folder } = await fixture();
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  const source = path.join(folder, '1pondo1111-111 hexjs.com.mp4');
+  const source = path.join(folder, '1pondo010123_001 hexjs.com.mp4');
   await fs.writeFile(path.join(folder, 'existing.mp4'), 'occupied');
   const preview = await previewRenameActions([
     { source, targetName: '..\\escape.mp4', kind: 'file' },
@@ -82,10 +82,10 @@ test('rejects invalid names and existing targets', async (t) => {
 test('skips invalid actions while applying the remaining safe changes', async (t) => {
   const { root, folder } = await fixture();
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  const video = path.join(folder, '1pondo1111-111 hexjs.com.mp4');
+  const video = path.join(folder, '1pondo010123_001 hexjs.com.mp4');
   const missing = path.join(folder, 'missing.mp4');
   const actions = [
-    { source: video, targetName: '1PONDO-1111-111.mp4', kind: 'file' },
+    { source: video, targetName: '010123_001.mp4', kind: 'file' },
     { source: missing, targetName: 'MISSING.mp4', kind: 'file' },
   ];
 
@@ -94,7 +94,7 @@ test('skips invalid actions while applying the remaining safe changes', async (t
   assert.equal(result.renamed, 1);
   assert.equal(result.skipped, 1);
   assert.equal(result.skippedActions[0].error, '源文件不存在');
-  await assert.doesNotReject(fs.access(path.join(folder, '1PONDO-1111-111.mp4')));
+  await assert.doesNotReject(fs.access(path.join(folder, '010123_001.mp4')));
 });
 
 test('quarantines advertising files without deleting them permanently', async (t) => {
@@ -113,16 +113,16 @@ test('quarantines advertising files without deleting them permanently', async (t
 test('renames files before moving a movie folder into an actor directory', async (t) => {
   const { root, folder } = await fixture();
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  const source = path.join(folder, '1pondo1111-111 hexjs.com.mp4');
-  const targetFolder = path.join(root, 'Actor A', '1PONDO-1111-111');
+  const source = path.join(folder, '1pondo010123_001 hexjs.com.mp4');
+  const targetFolder = path.join(root, 'Actor A', '010123_001');
   const actions = [
-    { source, targetName: '1PONDO-1111-111.mp4', kind: 'file' },
+    { source, targetName: '010123_001.mp4', kind: 'file' },
     { source: folder, targetPath: targetFolder, kind: 'directory-move' },
   ];
   const preview = await previewRenameActions(actions, { root });
   assert.equal(preview.valid, true);
   const result = await applyRenameActions(actions, { root });
   assert.equal(result.renamed, 2);
-  await assert.doesNotReject(fs.access(path.join(targetFolder, '1PONDO-1111-111.mp4')));
+  await assert.doesNotReject(fs.access(path.join(targetFolder, '010123_001.mp4')));
   await assert.rejects(fs.access(folder));
 });

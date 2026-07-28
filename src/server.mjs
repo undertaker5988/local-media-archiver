@@ -10,7 +10,7 @@ import { execFile } from 'node:child_process';
 import { scanLibrary } from './lib/file-scanner.mjs';
 import { listDirectories } from './lib/directory-browser.mjs';
 import { applyRenameActions, previewRenameActions } from './lib/rename-service.mjs';
-import { javBusProvider } from './lib/scrapers/javbus.mjs';
+import { SCRAPER_ADAPTER_OPTIONS, scrapeMetadata } from './lib/scraper-service.mjs';
 import { saveMetadata } from './lib/metadata-service.mjs';
 import { previewNaming } from './lib/naming-preview.mjs';
 import { loadSettings, resetSettings, saveSettings, settingsFilePath } from './lib/settings-service.mjs';
@@ -20,8 +20,6 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const publicDirectory = path.resolve(here, '../public');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT) || 4318;
-const providers = new Map([[javBusProvider.id, javBusProvider]]);
-
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -76,7 +74,8 @@ async function handleApi(request, response, pathname) {
     return sendJson(response, 200, {
       defaultRoot: process.cwd(),
       platform: process.platform,
-      providers: [...providers.values()].map(({ id, name }) => ({ id, name })),
+      providers: settings.scraping.providers.filter((source) => source.enabled).map(({ id, name }) => ({ id, name })),
+      scraperAdapters: SCRAPER_ADAPTER_OPTIONS,
       settings,
     });
   }
@@ -131,9 +130,12 @@ async function handleApi(request, response, pathname) {
     return sendJson(response, 200, await applyRenameActions(body.actions, { root: body.root, skipErrors: body.skipErrors === true }));
   }
   if (request.method === 'POST' && pathname === '/api/scrape') {
-    const provider = providers.get(body.provider || 'javbus');
-    if (!provider) throw Object.assign(new Error('未知刮削源'), { statusCode: 400 });
-    return sendJson(response, 200, { metadata: await provider.scrape(String(body.code ?? '').trim()) });
+    const settings = await loadSettings();
+    return sendJson(response, 200, await scrapeMetadata(
+      String(body.code ?? '').trim(),
+      settings.scraping.providers,
+      String(body.provider || settings.scraping.defaultProvider || 'auto'),
+    ));
   }
   if (request.method === 'POST' && pathname === '/api/metadata/save') {
     return sendJson(response, 200, await saveMetadata(body));

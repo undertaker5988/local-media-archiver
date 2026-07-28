@@ -441,6 +441,115 @@ function switchView(view) {
   else updateLibrarySelectionState();
 }
 
+function renderScrapeProviderOptions(preferredProvider = '') {
+  const select = $('#scrape-provider');
+  const scraping = state.settings?.scraping || { defaultProvider: 'auto', providers: [] };
+  const requested = preferredProvider || select.value || scraping.defaultProvider || 'auto';
+  select.replaceChildren();
+  const automatic = document.createElement('option');
+  automatic.value = 'auto';
+  automatic.textContent = '自动（按顺序尝试）';
+  select.append(automatic);
+  for (const source of scraping.providers.filter((entry) => entry.enabled !== false)) {
+    const option = document.createElement('option');
+    option.value = source.id;
+    option.textContent = source.name;
+    select.append(option);
+  }
+  const available = [...select.options].some((option) => option.value === requested);
+  select.value = available ? requested : 'auto';
+}
+
+function renderScraperDefaultOptions() {
+  const select = $('#setting-scrape-default');
+  const scraping = state.settings.scraping;
+  select.replaceChildren();
+  const automatic = document.createElement('option');
+  automatic.value = 'auto';
+  automatic.textContent = '自动（按列表顺序尝试）';
+  select.append(automatic);
+  for (const source of scraping.providers.filter((entry) => entry.enabled !== false)) {
+    const option = document.createElement('option');
+    option.value = source.id;
+    option.textContent = source.name;
+    select.append(option);
+  }
+  if (![...select.options].some((option) => option.value === scraping.defaultProvider)) scraping.defaultProvider = 'auto';
+  select.value = scraping.defaultProvider;
+}
+
+/** 渲染可编辑的 ScraperSource DTO 列表；输入事件只更新草稿，点击保存后才写入后端。 */
+function renderScraperSettings() {
+  const scraping = state.settings.scraping;
+  const container = $('#scrape-sources');
+  const adapters = state.config?.scraperAdapters || [
+    { id: 'javbus', name: 'JavBus' },
+    { id: 'javdb', name: 'JavDB' },
+    { id: 'javlibrary', name: 'JavLibrary' },
+    { id: 'generic', name: '通用页面' },
+  ];
+  container.replaceChildren();
+  $('#scrape-source-count').textContent = `${scraping.providers.filter((source) => source.enabled !== false).length} / ${scraping.providers.length} 个已启用`;
+  for (const source of scraping.providers) {
+    const row = create('div', 'scrape-source-row');
+    const enabled = document.createElement('input');
+    enabled.type = 'checkbox';
+    enabled.checked = source.enabled !== false;
+    enabled.setAttribute('aria-label', `启用刮削源 ${source.name}`);
+    enabled.addEventListener('change', () => {
+      source.enabled = enabled.checked;
+      if (!source.enabled && scraping.defaultProvider === source.id) scraping.defaultProvider = 'auto';
+      renderScraperDefaultOptions();
+      $('#scrape-source-count').textContent = `${scraping.providers.filter((entry) => entry.enabled !== false).length} / ${scraping.providers.length} 个已启用`;
+    });
+
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.className = 'scrape-source-name';
+    name.value = source.name;
+    name.maxLength = 40;
+    name.setAttribute('aria-label', `${source.name} 名称`);
+    name.addEventListener('input', () => {
+      source.name = name.value;
+      const option = [...$('#setting-scrape-default').options].find((entry) => entry.value === source.id);
+      if (option) option.textContent = source.name || '未命名来源';
+    });
+
+    const adapter = document.createElement('select');
+    adapter.setAttribute('aria-label', `${source.name} 解析器`);
+    for (const item of adapters) {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.name;
+      adapter.append(option);
+    }
+    adapter.value = source.adapter;
+    adapter.addEventListener('change', () => { source.adapter = adapter.value; });
+
+    const url = document.createElement('input');
+    url.type = 'text';
+    url.className = 'scrape-source-url';
+    url.value = source.urlTemplate;
+    url.spellcheck = false;
+    url.setAttribute('aria-label', `${source.name} URL 模板`);
+    url.addEventListener('input', () => { source.urlTemplate = url.value; });
+
+    const remove = create('button', 'icon-button delete-scrape-source', '×');
+    remove.type = 'button';
+    remove.title = scraping.providers.length === 1 ? '至少保留一个刮削源' : '删除刮削源';
+    remove.disabled = scraping.providers.length === 1;
+    remove.setAttribute('aria-label', `删除刮削源 ${source.name}`);
+    remove.addEventListener('click', () => {
+      scraping.providers = scraping.providers.filter((entry) => entry.id !== source.id);
+      if (scraping.defaultProvider === source.id) scraping.defaultProvider = 'auto';
+      renderScraperSettings();
+    });
+    row.append(enabled, name, adapter, url, remove);
+    container.append(row);
+  }
+  renderScraperDefaultOptions();
+}
+
 function fillSettingsForm(settings) {
   $('#setting-video-template').value = settings.naming.videoTemplate;
   $('#setting-subtitle-template').value = settings.naming.subtitleTemplate;
@@ -452,12 +561,13 @@ function fillSettingsForm(settings) {
   $('#setting-quarantine-junk').checked = settings.cleanup.quarantineJunk;
   $('#setting-archive-by-actor').checked = settings.organization.archiveByActor;
   $('#setting-actor-folder-template').value = settings.organization.actorFolderTemplate;
+  renderScraperSettings();
   renderCorrectionRules();
 }
 
 function collectSettingsForm() {
   return {
-    version: 2,
+    version: 3,
     naming: {
       videoTemplate: $('#setting-video-template').value.trim(),
       subtitleTemplate: $('#setting-subtitle-template').value.trim(),
@@ -484,6 +594,7 @@ function collectSettingsForm() {
       outputDirectory: state.libraryOutput,
       fileMode: state.libraryMode,
     },
+    scraping: structuredClone(state.settings.scraping),
     corrections: state.settings?.corrections || [],
   };
 }
@@ -583,6 +694,7 @@ async function saveNamingSettings() {
     state.settings = result.settings;
     state.savedSettings = structuredClone(result.settings);
     fillSettingsForm(state.settings);
+    renderScrapeProviderOptions(state.settings.scraping.defaultProvider);
     $('#scan-depth').value = String(state.settings.scan.maxDepth);
     $('#rename-folders').checked = state.settings.renaming.renameFolders;
     $('#quarantine-ads').checked = state.settings.cleanup.quarantineJunk;
@@ -593,7 +705,7 @@ async function saveNamingSettings() {
       await scan({ silent: true });
       toast('配置已保存，并已重新计算当前批次');
     } else {
-      toast('命名配置已保存');
+      toast('配置已保存');
     }
   } catch (error) {
     toast(error.message, 'error');
@@ -940,8 +1052,8 @@ async function scrapeItem(item, quiet = false) {
   item.metadata = result.metadata;
   updateSuggestedNames(item, item.code);
   if (item.id === state.activeId) fillMetadataForm(item);
-  if (!quiet) toast(`${item.code} 刮削完成`);
-  return result.metadata;
+  if (!quiet) toast(`${item.code} 已通过 ${result.provider.name} 刮削完成`);
+  return result;
 }
 
 async function scrapeActive() {
@@ -951,8 +1063,9 @@ async function scrapeActive() {
   startTask('刮削影片资料', 1, `正在查询 ${item.code || item.name}`);
   setBusy(button, true);
   try {
-    await scrapeItem(item);
-    appendTaskLog(`${item.code}：资料已更新`, 'success');
+    const result = await scrapeItem(item);
+    appendTaskLog(`${item.code}：${result.provider.name} 资料已更新`, 'success');
+    for (const attempt of result.attempts || []) appendTaskLog(`${attempt.name}：${attempt.error}，已尝试下一来源`, 'muted');
     finishTask('刮削完成');
     renderRows();
   } catch (error) {
@@ -977,9 +1090,10 @@ async function batchScrape() {
     updateTaskProgress(index, actionable.length, `正在刮削 ${item.code}`);
     appendTaskLog(`开始查询 ${item.code}`);
     try {
-      await scrapeItem(item, true);
+      const result = await scrapeItem(item, true);
       success += 1;
-      appendTaskLog(`${item.code}：刮削成功`, 'success');
+      for (const attempt of result.attempts || []) appendTaskLog(`${item.code} · ${attempt.name}：${attempt.error}`, 'muted');
+      appendTaskLog(`${item.code}：通过 ${result.provider.name} 刮削成功`, 'success');
     } catch (error) {
       failures.push(`${item.code}: ${error.message}`);
       appendTaskLog(`${item.code}：${error.message}`, 'error');
@@ -1344,13 +1458,7 @@ async function initialize() {
     $('#archive-by-actor').checked = state.settings.organization.archiveByActor;
     syncArchiveControls();
     renderLibrary();
-    const providerSelect = $('#scrape-provider');
-    for (const provider of state.config.providers) {
-      const option = document.createElement('option');
-      option.value = provider.id;
-      option.textContent = provider.name;
-      providerSelect.append(option);
-    }
+    renderScrapeProviderOptions(state.settings.scraping.defaultProvider);
     const initialView = location.hash.replace('#', '');
     switchView(['workspace', 'library', 'settings', 'guide'].includes(initialView) ? initialView : 'workspace');
   } catch (error) {
@@ -1446,6 +1554,18 @@ document.querySelectorAll('.token-toolbar button').forEach((button) => button.ad
   scheduleSettingsPreview(0);
 }));
 $('#save-settings').addEventListener('click', saveNamingSettings);
+$('#setting-scrape-default').addEventListener('change', (event) => { state.settings.scraping.defaultProvider = event.currentTarget.value; });
+$('#add-scrape-source').addEventListener('click', () => {
+  if (state.settings.scraping.providers.length >= 12) return toast('刮削源最多配置 12 个', 'error');
+  state.settings.scraping.providers.push({
+    id: `custom-${Date.now().toString(36)}`,
+    name: '自定义源',
+    adapter: 'generic',
+    urlTemplate: 'https://example.com/search?q={code}',
+    enabled: true,
+  });
+  renderScraperSettings();
+});
 $('#reset-settings').addEventListener('click', () => {
   state.settings = structuredClone(state.defaultSettings);
   fillSettingsForm(state.settings);

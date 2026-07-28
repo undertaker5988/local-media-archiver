@@ -302,9 +302,22 @@
             </div>
           </section>
 
+          <section class="settings-section" aria-labelledby="scraping-heading">
+            <div class="section-heading scraping-heading">
+              <div><span class="section-index">04</span><h2 id="scraping-heading">刮削源</h2></div>
+              <button id="add-scrape-source" class="secondary-button" type="button">添加刮削源</button>
+            </div>
+            <div class="scraper-settings-toolbar">
+              <label class="settings-field compact-setting"><span>默认查询方式</span><select id="setting-scrape-default"></select></label>
+              <span id="scrape-source-count"></span>
+            </div>
+            <div class="scrape-source-header"><span>启用</span><span>名称</span><span>解析器</span><span>URL 模板（需要 {code}）</span><span></span></div>
+            <div id="scrape-sources" class="scrape-sources"></div>
+          </section>
+
           <section class="settings-section" aria-labelledby="correction-heading">
             <div class="section-heading correction-heading">
-              <div><span class="section-index">04</span><h2 id="correction-heading">识别矫正规则</h2></div>
+              <div><span class="section-index">05</span><h2 id="correction-heading">识别矫正规则</h2></div>
               <button id="new-correction" class="secondary-button" type="button">新建规则</button>
             </div>
             <div class="correction-table-header"><span>启用</span><span>匹配值</span><span>替换为</span><span>方式</span><span></span></div>
@@ -323,7 +336,7 @@
           <section class="guide-step">
             <span class="guide-number">01</span>
             <div><h2>扫描并核对</h2><p>选择下载目录并扫描。表格会同时显示源文件、识别番号和目标文件名；缺字幕、低置信度和未识别项目会单独标记。</p></div>
-            <div class="guide-example"><span>原文件</span><code>1pondo1111-111 hexjs.com.mp4</code><span>建议名称</span><code>1PONDO-1111-111.mp4</code></div>
+            <div class="guide-example"><span>原文件</span><code>1pondo010123_001 hexjs.com.mp4</code><span>建议名称</span><code>010123_001.mp4</code></div>
           </section>
           <section class="guide-step">
             <span class="guide-number">02</span>
@@ -342,7 +355,7 @@
           </section>
           <section class="guide-step">
             <span class="guide-number">05</span>
-            <div><h2>刮削并保存资料</h2><p>从行尾打开影片资料，可在线刮削或手工补全标题、演员、制作商和标签。保存后会生成 NFO、JSON，并可下载封面。</p></div>
+            <div><h2>刮削并保存资料</h2><p>从行尾打开影片资料，可自动尝试多个刮削源，也可指定单一来源。刮削源的名称、解析器和 URL 模板在命名配置中维护。</p></div>
             <div class="guide-output"><code>ABP-123.nfo</code><code>.media-archive.json</code><code>ABP-123-poster.jpg</code></div>
           </section>
           <section class="guide-step">

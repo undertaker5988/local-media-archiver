@@ -9,7 +9,7 @@ import crypto from 'node:crypto';
 export const TEMPLATE_TOKENS = ['code', 'part', 'title', 'actor', 'studio', 'year', 'lang', 'ext', 'original'];
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 2,
+  version: 3,
   naming: {
     videoTemplate: '{code}{part}{ext}',
     subtitleTemplate: '{code}{part}{lang}{ext}',
@@ -35,6 +35,14 @@ export const DEFAULT_SETTINGS = Object.freeze({
     sources: [],
     outputDirectory: '',
     fileMode: 'copy',
+  },
+  scraping: {
+    defaultProvider: 'auto',
+    providers: [
+      { id: 'javbus', name: 'JavBus', adapter: 'javbus', urlTemplate: 'https://www.javbus.com/{code}', enabled: true },
+      { id: 'javdb', name: 'JavDB', adapter: 'javdb', urlTemplate: 'https://javdb.com/search?q={code}&f=all', enabled: true },
+      { id: 'javlibrary', name: 'JavLibrary', adapter: 'javlibrary', urlTemplate: 'https://www.javlibrary.com/cn/vl_searchbyid.php?keyword={code}', enabled: true },
+    ],
   },
   corrections: [],
 });
@@ -91,6 +99,29 @@ function normalizeDirectoryList(value) {
   return [...new Set(value.map((entry) => String(entry ?? '').trim()).filter(Boolean))].slice(0, 20);
 }
 
+function normalizeScraperSource(source, index, usedIds) {
+  const name = String(source?.name ?? '').trim();
+  if (!name || name.length > 40) throw Object.assign(new Error(`第 ${index + 1} 个刮削源名称长度应为 1 到 40 个字符`), { statusCode: 400 });
+  const adapter = ['javbus', 'javdb', 'javlibrary', 'generic'].includes(source?.adapter) ? source.adapter : '';
+  if (!adapter) throw Object.assign(new Error(`第 ${index + 1} 个刮削源解析器无效`), { statusCode: 400 });
+  const urlTemplate = String(source?.urlTemplate ?? '').trim();
+  if (!urlTemplate.includes('{code}')) throw Object.assign(new Error(`${name} 的 URL 模板需要包含 {code}`), { statusCode: 400 });
+  if (urlTemplate.length > 600) throw Object.assign(new Error(`${name} 的 URL 模板不能超过 600 个字符`), { statusCode: 400 });
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(urlTemplate.replaceAll('{code}', 'ABP-123'));
+  } catch {
+    throw Object.assign(new Error(`${name} 的 URL 模板不是有效网址`), { statusCode: 400 });
+  }
+  if (!['http:', 'https:'].includes(parsedUrl.protocol) || parsedUrl.username || parsedUrl.password) {
+    throw Object.assign(new Error(`${name} 只允许不含账号密码的 HTTP/HTTPS 网址`), { statusCode: 400 });
+  }
+  let id = /^[a-z0-9][a-z0-9-]{1,63}$/i.test(String(source?.id ?? '')) ? String(source.id).toLowerCase() : `custom-${crypto.randomUUID()}`;
+  if (usedIds.has(id)) id = `custom-${crypto.randomUUID()}`;
+  usedIds.add(id);
+  return { id, name, adapter, urlTemplate, enabled: source?.enabled !== false };
+}
+
 /** 不信任页面传入对象；逐字段选取、限长并回退默认值，避免任意属性进入配置文件。 */
 export function normalizeSettings(input = {}) {
   const base = defaults();
@@ -100,11 +131,17 @@ export function normalizeSettings(input = {}) {
   const cleanup = input.cleanup ?? {};
   const organization = input.organization ?? {};
   const library = input.library ?? {};
+  const scraping = input.scraping ?? {};
   const corrections = Array.isArray(input.corrections) ? input.corrections : [];
   if (corrections.length > 200) throw Object.assign(new Error('矫正规则最多保存 200 条'), { statusCode: 400 });
+  const scraperInputs = Array.isArray(scraping.providers) ? scraping.providers : base.scraping.providers;
+  if (!scraperInputs.length || scraperInputs.length > 12) throw Object.assign(new Error('刮削源数量应为 1 到 12 个'), { statusCode: 400 });
+  const usedProviderIds = new Set();
+  const providers = scraperInputs.map((source, index) => normalizeScraperSource(source, index, usedProviderIds));
+  const requestedDefaultProvider = String(scraping.defaultProvider ?? base.scraping.defaultProvider);
 
   return {
-    version: 2,
+    version: 3,
     naming: {
       videoTemplate: validateTemplate(naming.videoTemplate ?? base.naming.videoTemplate, '视频模板', true),
       subtitleTemplate: validateTemplate(naming.subtitleTemplate ?? base.naming.subtitleTemplate, '字幕模板', true),
@@ -132,6 +169,12 @@ export function normalizeSettings(input = {}) {
       sources: normalizeDirectoryList(library.sources),
       outputDirectory: String(library.outputDirectory ?? '').trim().slice(0, 1000),
       fileMode: ['copy', 'move', 'hardlink'].includes(library.fileMode) ? library.fileMode : base.library.fileMode,
+    },
+    scraping: {
+      defaultProvider: requestedDefaultProvider === 'auto' || providers.some((source) => source.id === requestedDefaultProvider && source.enabled)
+        ? requestedDefaultProvider
+        : 'auto',
+      providers,
     },
     corrections: corrections.map(normalizeCorrection),
   };

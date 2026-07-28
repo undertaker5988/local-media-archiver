@@ -68,6 +68,35 @@ test('rejects unsafe templates before saving', () => {
     () => normalizeSettings({ organization: { actorFolderTemplate: '{code}' } }),
     /\{actor\}/,
   );
+  assert.throws(
+    () => normalizeSettings({ scraping: { providers: [{ id: 'custom', name: 'Custom', adapter: 'generic', urlTemplate: 'file:///tmp/{code}' }] } }),
+    /HTTP\/HTTPS/,
+  );
+  assert.throws(
+    () => normalizeSettings({ scraping: { providers: [{ id: 'custom', name: 'Custom', adapter: 'generic', urlTemplate: 'https://example.test/detail' }] } }),
+    /\{code\}/,
+  );
+});
+
+test('normalizes built-in and manually configured scraper sources', () => {
+  const settings = normalizeSettings({
+    scraping: {
+      defaultProvider: 'custom-source',
+      providers: [
+        { id: 'javbus', name: 'JavBus mirror', adapter: 'javbus', urlTemplate: 'https://bus.example/{code}', enabled: false },
+        { id: 'custom-source', name: 'My catalog', adapter: 'generic', urlTemplate: 'https://catalog.example/search?q={code}', enabled: true },
+      ],
+    },
+  });
+  assert.equal(settings.version, 3);
+  assert.equal(settings.scraping.defaultProvider, 'custom-source');
+  assert.deepEqual(settings.scraping.providers[1], {
+    id: 'custom-source',
+    name: 'My catalog',
+    adapter: 'generic',
+    urlTemplate: 'https://catalog.example/search?q={code}',
+    enabled: true,
+  });
 });
 
 test('persists normalized settings in the configured data directory', async (t) => {
@@ -85,10 +114,13 @@ test('persists normalized settings in the configured data directory', async (t) 
   input.library.sources = ['D:\\Downloads\\A', 'D:\\Downloads\\B'];
   input.library.outputDirectory = 'D:\\Media\\整理完成';
   input.library.fileMode = 'hardlink';
+  input.scraping.defaultProvider = 'javdb';
   await saveSettings(input);
   const loaded = await loadSettings();
   assert.equal(loaded.naming.videoTemplate, '{studio} - {code}{ext}');
   assert.deepEqual(loaded.library.sources, input.library.sources);
   assert.equal(loaded.library.outputDirectory, input.library.outputDirectory);
   assert.equal(loaded.library.fileMode, 'hardlink');
+  assert.equal(loaded.scraping.defaultProvider, 'javdb');
+  assert.equal(loaded.scraping.providers.length, 3);
 });

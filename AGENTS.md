@@ -39,8 +39,9 @@
   - `src/lib/rename-service.mjs`：重命名、广告隔离、演员目录移动的预览与执行。
   - `src/lib/library-service.mjs`：多来源片库索引、内容哈希、复制/移动/硬链接归集。
   - `src/lib/settings-service.mjs`：命名模板、广告关键词和修正规则。
+  - `src/lib/scraper-service.mjs`：多刮削源注册、站点解析策略和自动故障转移。
   - `src/lib/metadata-service.mjs`：NFO、JSON 和封面保存。
-  - `src/lib/scrapers/javbus.mjs`：JavBus HTML 适配器。
+  - `src/lib/scrapers/javbus.mjs`：JavBus HTML 适配器；JavDB、JavLibrary 和通用页面适配由 scraper service 统一编排。
 - 测试：`test/` 使用 Node.js 内置 `node:test`，统一入口为 `test/all.test.mjs`。
 - 演示数据：`demo-library/` 中的媒体文件都是极小文本占位文件，不是真实视频。
 
@@ -91,12 +92,13 @@ node src/server.mjs
 - 新增或修改 API 时，同步处理输入校验、中文错误信息、前端忙碌/失败状态和自动化测试。
 - 涉及文件系统行为时，至少覆盖：正常路径、已有目标、非法目标、部分错误、跨卷/同卷差异和回滚或保留源文件行为。
 - 修改番号解析、广告规则或命名模板时，必须增加针对真实命名形态的表驱动测试，并保留原有案例。
+- 日期型无码番号以 MDC、JavSP、Javinizer-Go 等主流开源工具的规则交叉校验：1Pondo/Pacopacomama 使用 6+3 位、10Musume 使用 6+2 位、Caribbeancom 使用 6+3 位。厂商前后缀属于兼容输入，不直接视为规范输出；不满足真实位数的猜测值必须交给人工确认。
 - 修改用户可见功能后同步更新 `README.md`；如果架构、安全边界或接手流程变化，同步更新本文件。
 - 保留用户已有改动。发现无关的未提交文件（例如个人 IDE 配置）时不要擅自暂存、删除或覆盖。
 
 ## 验证与完成标准
 
-当前测试基线为 30 项。每次交付至少执行：
+当前测试基线为 36 项。每次交付至少执行：
 
 ```sh
 npm test
@@ -115,6 +117,6 @@ git status --short
 
 ## 当前已知限制
 
-- JavBus 使用网页结构适配，不是官方 API；可能受网络、反爬和页面改版影响。
+- JavBus、JavDB 和 JavLibrary 使用网页结构适配，不是官方 API；可能受网络、反爬和页面改版影响。
 - 当前工具面向单机和单用户，不包含身份认证、并发任务队列或远程访问能力。
 - 番号识别规则有意保持保守，无法识别的命名需要人工修正。
